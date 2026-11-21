@@ -3,23 +3,23 @@
   "module": "index.ts",
   "version": "1.0.0",
   "type": "module",
-  "private": true,
+  "private": false,
   "bin": {
-    "envcontrol": "index.ts"
+    "envcontrol": "dist/index.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "start": "bun run index.ts",
+    "start": "bun run dist/index.js",
     "ports": "bun run index.ts ports",
     "shell": "bun run index.ts shell",
     "dev": "bun run index.ts",
     "build": "bun build index.ts --target=node --outfile=dist/index.js",
     "compling": "bun build --compile index.ts --outfile envcontrol.exe",
-    "prepack": "npm run validate && npm run build",
+    "prepack": "npm run",
     "pack": "npm pack",
-    "prepublishOnly": "npm run validate && npm run build",
+    "prepublishOnly": "npm run build",
     "release": "npm publish"
   },
   "devDependencies": {

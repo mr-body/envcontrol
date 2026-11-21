@@ -221,6 +221,18 @@ void processCommand(String rawCmd, Stream &output) {
             output.println("ERROR: EMPTY WIFI SSID");
         }
     }
+    else if (upperCmd == "SET WIFI ENABLED ON" || upperCmd == "SET WIFI ENABLED TRUE" || upperCmd == "WIFI ON") {
+        wifiEnabled = true;
+        saveWiFiConfig();
+        output.println("WIFI_ENABLED: ON");
+        startWiFiConnection();
+    }
+    else if (upperCmd == "SET WIFI ENABLED OFF" || upperCmd == "SET WIFI ENABLED FALSE" || upperCmd == "WIFI OFF") {
+        wifiEnabled = false;
+        saveWiFiConfig();
+        output.println("WIFI_ENABLED: OFF");
+        startWiFiConnection();
+    }
     else if (upperCmd.startsWith("SET WIFI ")) {
         String payload = rawCmd.substring(9);
         payload.trim();
@@ -241,18 +253,6 @@ void processCommand(String rawCmd, Stream &output) {
         } else {
             output.println("ERROR: EMPTY WIFI SSID");
         }
-    }
-    else if (upperCmd == "SET WIFI ENABLED ON" || upperCmd == "SET WIFI ENABLED TRUE" || upperCmd == "WIFI ON") {
-        wifiEnabled = true;
-        saveWiFiConfig();
-        output.println("WIFI_ENABLED: ON");
-        startWiFiConnection();
-    }
-    else if (upperCmd == "SET WIFI ENABLED OFF" || upperCmd == "SET WIFI ENABLED FALSE" || upperCmd == "WIFI OFF") {
-        wifiEnabled = false;
-        saveWiFiConfig();
-        output.println("WIFI_ENABLED: OFF");
-        startWiFiConnection();
     }
     else if (upperCmd == "WIFI RECONECT" || upperCmd == "WIFI RECONNECT") {
         output.println("WIFI RECONNECTING...");

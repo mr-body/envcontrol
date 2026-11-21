@@ -2,7 +2,6 @@
 PACKAGE_NAME = envcontrol
 BUN = bun
 NPM = npm
-TOKEN = npm_
 
 .PHONY: help install clean build dev pack publish publish-otp
 
