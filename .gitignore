@@ -1,0 +1,62 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET build output and generated files
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.resources
+*.deps.json
+*.runtimeconfig.json
+
+# Node.js / Bun dependencies
+node_modules/
+.pnpm-store/
+.bun/
+.npm/
+
+# JavaScript / TypeScript build output
+dist/
+build/
+.next/
+.nuxt/
+.output/
+coverage/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+bun-debug.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Temporary and OS files
+*.tmp
+*.bak
+*.orig

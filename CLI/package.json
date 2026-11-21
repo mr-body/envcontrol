@@ -1,0 +1,34 @@
+{
+  "name": "envcontrol",
+  "module": "index.ts",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "envcontrol": "index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "start": "bun run index.ts",
+    "ports": "bun run index.ts ports",
+    "shell": "bun run index.ts shell",
+    "dev": "bun run index.ts",
+    "build": "bun build index.ts --target=node --outfile=dist/index.js",
+    "compling": "bun build --compile index.ts --outfile envcontrol.exe",
+    "prepack": "npm run validate && npm run build",
+    "pack": "npm pack",
+    "prepublishOnly": "npm run validate && npm run build",
+    "release": "npm publish"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "serialport": "^13.0.0"
+  }
+}
