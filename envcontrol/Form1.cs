@@ -22,9 +22,24 @@ namespace envcontrol
             serial.DataReceived += Serial_DataReceived;
             serial.ErrorOccurred += Serial_ErrorOccurred;
 
-            CarregarPortasCom();
-
+            DefinirControlesConectados(false);
             AtualizarBotaoLed(false);
+            CarregarPortasCom();
+        }
+
+        private void DefinirControlesConectados(bool conectado)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => DefinirControlesConectados(conectado)));
+                return;
+            }
+
+            btn_act.Enabled = conectado;
+            button2.Enabled = conectado;
+            button3.Enabled = conectado;
+            button4.Enabled = conectado;
+            btn_ping.Enabled = conectado;
         }
 
         private void CarregarPortasCom()
@@ -35,14 +50,19 @@ namespace envcontrol
             {
                 string[] ports = portManager.GetAvailablePorts();
 
-                portList.Items.AddRange(ports);
-
-                if (ports.Length == 0)
+                if (ports.Length > 0)
+                {
+                    portList.Items.AddRange(ports);
+                    portList.SelectedIndex = 0;
+                }
+                else
+                {
                     AppendLog("Nenhuma porta COM encontrada.");
+                }
             }
             catch (Exception ex)
             {
-                AppendLog("Erro: " + ex.Message);
+                AppendLog("Erro ao listar portas COM: " + ex.Message);
             }
         }
 
@@ -52,7 +72,12 @@ namespace envcontrol
 
             if (string.IsNullOrWhiteSpace(port))
             {
-                MessageBox.Show("Seleciona uma porta COM.");
+                MessageBox.Show(
+                    "Seleciona uma porta COM.",
+                    "Aviso",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
                 return;
             }
 
@@ -60,16 +85,21 @@ namespace envcontrol
             {
                 serial.Connect(port);
 
+                if (!serial.IsConnected)
+                {
+                    DefinirControlesConectados(false);
+                    AppendLog($"Falha ao conectar em {port}.");
+                    return;
+                }
+
                 AppendLog($"Conectado em {port}.");
+                DefinirControlesConectados(true);
 
                 serial.Send("STATUS");
-
-                btn_act.Enabled = true;
-                button2.Enabled = true;
-                btn_ping.Enabled = true;
             }
             catch (Exception ex)
             {
+                DefinirControlesConectados(false);
                 AppendLog("Erro de conexão: " + ex.Message);
 
                 MessageBox.Show(
@@ -83,45 +113,52 @@ namespace envcontrol
 
         private void Serial_DataReceived(string message)
         {
-            message = message.Trim();
+            if (string.IsNullOrWhiteSpace(message))
+                return;
 
-            string[] parts = message.Split(':', 2);
+            string cleanMessage = message.Trim();
+            string[] parts = cleanMessage.Split(':', 2);
 
-            string type = parts[0];
-            string content = parts.Length > 1 ? parts[1] : "";
+            string type = parts[0].Trim().ToUpperInvariant();
+            string content = parts.Length > 1 ? parts[1].Trim() : "";
 
             if (type == "INFO")
             {
-                if (content == "LED ON")
+                if (content.Equals("LED ON", StringComparison.OrdinalIgnoreCase))
                     AtualizarBotaoLed(true);
-
-                else if (content == "LED OFF")
+                else if (content.Equals("LED OFF", StringComparison.OrdinalIgnoreCase))
                     AtualizarBotaoLed(false);
             }
 
-            AppendLog("ESP32: " + message);
-
-            ProcessarEstadoLed(message);
+            AppendLog("ESP32: " + cleanMessage);
+            ProcessarEstadoLed(cleanMessage);
         }
 
         private void Serial_ErrorOccurred(string error)
         {
             AppendLog("Erro na comunicação: " + error);
+
+            if (!serial.IsConnected)
+            {
+                DefinirControlesConectados(false);
+            }
         }
 
         private void ProcessarEstadoLed(string message)
         {
-            string upper = message.ToUpperInvariant();
+            string upper = message.ToUpperInvariant().Replace(" ", "");
 
             if (upper.Contains("STATUS:ON") ||
-                upper == "LED ON" ||
-                upper.EndsWith("LED: ON"))
+                upper.Contains("LED:ON") ||
+                upper.Contains("LED_STATUS:ON") ||
+                upper == "LEDON")
             {
                 AtualizarBotaoLed(true);
             }
             else if (upper.Contains("STATUS:OFF") ||
-                     upper == "LED OFF" ||
-                     upper.EndsWith("LED: OFF"))
+                     upper.Contains("LED:OFF") ||
+                     upper.Contains("LED_STATUS:OFF") ||
+                     upper == "LEDOFF")
             {
                 AtualizarBotaoLed(false);
             }
@@ -131,26 +168,21 @@ namespace envcontrol
         {
             if (InvokeRequired)
             {
-                BeginInvoke(new Action(() =>
-                    AtualizarBotaoLed(ligado)));
+                BeginInvoke(new Action(() => AtualizarBotaoLed(ligado)));
                 return;
             }
 
             ledStatus = ligado;
-
             btn_act.Text = ligado ? "OFF" : "ON";
-
-            btn_act.BackColor = ligado
-                ? Color.Red
-                : Color.Green;
+            btn_act.BackColor = ligado ? Color.Red : Color.Green;
+            btn_act.ForeColor = Color.White;
         }
 
         private void AppendLog(string texto)
         {
             if (txtLogs.InvokeRequired)
             {
-                txtLogs.BeginInvoke(new Action(() =>
-                    AppendLog(texto)));
+                txtLogs.BeginInvoke(new Action(() => AppendLog(texto)));
                 return;
             }
 
@@ -165,20 +197,22 @@ namespace envcontrol
             {
                 if (!serial.IsConnected)
                 {
-                    MessageBox.Show("Conecta-te primeiro.");
+                    MessageBox.Show(
+                        "Conecta-te primeiro.",
+                        "Aviso",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                    DefinirControlesConectados(false);
                     return;
                 }
 
-                if (!ledStatus)
-                    serial.Send("ON");
-                else
-                    serial.Send("OFF");
-
-                // O estado será atualizado quando chegar a resposta do ESP32.
+                string comando = !ledStatus ? "ON" : "OFF";
+                serial.Send(comando);
             }
             catch (Exception ex)
             {
-                AppendLog("Erro: " + ex.Message);
+                AppendLog("Erro ao enviar comando LED: " + ex.Message);
             }
         }
 
@@ -186,16 +220,29 @@ namespace envcontrol
         {
             try
             {
+                if (!serial.IsConnected)
+                {
+                    MessageBox.Show(
+                        "Conecta-te primeiro.",
+                        "Aviso",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                    return;
+                }
+
                 serial.Send("PING");
             }
             catch (Exception ex)
             {
-                AppendLog("Erro: " + ex.Message);
+                AppendLog("Erro ao enviar PING: " + ex.Message);
             }
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            serial.DataReceived -= Serial_DataReceived;
+            serial.ErrorOccurred -= Serial_ErrorOccurred;
             serial.Dispose();
 
             base.OnFormClosing(e);
@@ -203,14 +250,20 @@ namespace envcontrol
 
         private void button2_Click_1(object sender, EventArgs e)
         {
-            BluetoothConfig dialog = new BluetoothConfig(serial);
-            dialog.ShowDialog();
+            using BluetoothConfig dialog = new BluetoothConfig(serial);
+            dialog.ShowDialog(this);
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-            WifiConfig dialog = new WifiConfig(serial);
-            dialog.ShowDialog();
+            using ServerConfig dialog = new ServerConfig(serial);
+            dialog.ShowDialog(this);
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            using WifiConfig dialog = new WifiConfig(serial);
+            dialog.ShowDialog(this);
         }
     }
 }

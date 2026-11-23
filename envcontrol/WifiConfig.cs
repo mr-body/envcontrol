@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -21,23 +20,50 @@ namespace envcontrol
 
             this.serial = serial;
 
-            // Registar eventos antes de comunicar com o ESP32
             serial.DataReceived += Serial_DataReceived;
 
             FormClosing += WifiConfig_FormClosing;
             Shown += WifiConfig_Shown;
-
-            // Solicitar configurações atuais
-            serial.Send("CONFIG");
         }
 
         // ======================================
         // INICIALIZAÇÃO
         // ======================================
 
-        private async void WifiConfig_Shown(object sender, EventArgs e)
+        private async void WifiConfig_Shown(object? sender, EventArgs e)
         {
+            TrySend("CONFIG");
             await RefreshAvailableWifiAsync();
+        }
+
+        // ======================================
+        // ENVIO SEGURO
+        // ======================================
+
+        private bool TrySend(string command)
+        {
+            try
+            {
+                if (!serial.IsConnected)
+                {
+                    ShowEspMessage("Sem ligação ao ESP32.");
+                    return false;
+                }
+
+                serial.Send(command);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ShowEspMessage("Erro ao enviar: " + ex.Message);
+                return false;
+            }
+        }
+
+        private void ShowEspMessage(string text)
+        {
+            esp_message.Text = text;
+            esp_message.Visible = true;
         }
 
         // ======================================
@@ -114,8 +140,7 @@ namespace envcontrol
                     string.Equals(
                         network.Ssid,
                         ssid,
-                        StringComparison.OrdinalIgnoreCase
-                    ))
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     avalible_wifi.SelectedItem = network;
                     return;
@@ -144,83 +169,66 @@ namespace envcontrol
             }
             catch (InvalidOperationException)
             {
-                // Form encerrado durante a recepção
+                // Form encerrado durante a receção
             }
         }
 
         private void ProcessMessage(string message)
         {
-            if (string.IsNullOrWhiteSpace(message))
+            if (IsDisposed || string.IsNullOrWhiteSpace(message))
                 return;
 
             message = message.Trim();
 
-            Console.WriteLine("[ESP32] " + message);
-
-            // Ignorar delimitadores de configuração
-            if (message == "CONFIG_START" ||
-                message == "CONFIG_END")
+            if (message == "CONFIG_START" || message == "CONFIG_END")
                 return;
 
             string[] parts = message.Split(new[] { ':' }, 2);
 
             string type = parts[0].Trim().ToUpperInvariant();
+            string content = parts.Length > 1 ? parts[1].Trim() : string.Empty;
 
-            string content = parts.Length > 1
-                ? parts[1].Trim()
-                : string.Empty;
-
-            // Mostrar última mensagem recebida
-            esp_message.Text = message;
-            esp_message.Visible = true;
-            esp_message.Tag = type;
+            ShowEspMessage(message);
 
             switch (type)
             {
                 case "WIFI_SSID":
-
                     _lastKnownSsid = content;
-
                     wifiSSID.Text = content;
-
                     SelectNetworkInList(content);
-
                     break;
 
                 case "WIFI_IP":
-
                     wifiIp.Text = content;
-
                     break;
 
                 case "WIFI_STATUS":
-
                     wifiStatus.Text = content;
-
                     break;
 
                 case "WIFI_ENABLED":
+                    {
+                        bool enabled =
+                            content.Equals("YES", StringComparison.OrdinalIgnoreCase) ||
+                            content.Equals("ON", StringComparison.OrdinalIgnoreCase) ||
+                            content.Equals("TRUE", StringComparison.OrdinalIgnoreCase);
 
-                    bool enabled =
-                        content.Equals("ON", StringComparison.OrdinalIgnoreCase) ||
-                        content.Equals("TRUE", StringComparison.OrdinalIgnoreCase);
-
-                    SetCheckedWithoutEvent(enabled);
-
-                    break;
+                        SetCheckedWithoutEvent(enabled);
+                        break;
+                    }
 
                 case "INFO":
+                    // Só reage a eventos de Wi-Fi
+                    if (content.StartsWith("WIFI", StringComparison.OrdinalIgnoreCase))
+                    {
+                        wifiStatus.Text = content;
 
-                    // Notificações do ESP32
-                    wifiStatus.Text = content;
-
+                        if (content.Equals("WIFI CONNECTED", StringComparison.OrdinalIgnoreCase))
+                            TrySend("CONFIG"); // atualizar o IP
+                    }
                     break;
             }
         }
-
-        // ======================================
-        // ATUALIZAR INTERFACE
-        // ======================================
 
         private void SetCheckedWithoutEvent(bool value)
         {
@@ -240,7 +248,7 @@ namespace envcontrol
         // CONFIGURAR WI-FI
         // ======================================
 
-        private async void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object? sender, EventArgs e)
         {
             string ssid =
                 (avalible_wifi.SelectedItem as WifiNetworkInfo)?.Ssid
@@ -256,21 +264,18 @@ namespace envcontrol
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning
                 );
-
                 return;
             }
 
-            // O protocolo atual do ESP32 utiliza o último espaço
-            // para separar a password do SSID.
-            if (password.Contains(' '))
+            // O separador no firmware é '|'
+            if (ssid.Contains('|'))
             {
                 MessageBox.Show(
-                    "A versão atual do firmware não suporta espaços na password Wi-Fi.",
-                    "Password inválida",
+                    "O nome da rede não pode conter o carácter '|'.",
+                    "Rede inválida",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning
                 );
-
                 return;
             }
 
@@ -284,64 +289,47 @@ namespace envcontrol
             if (confirmation != DialogResult.Yes)
                 return;
 
-            try
-            {
-                _lastKnownSsid = ssid;
+            _lastKnownSsid = ssid;
 
-                serial.Send(
-                    $"SET WIFI SSID PASS {ssid} {password}"
-                );
+            if (!TrySend($"SET WIFI SSID PASS {ssid}|{password}"))
+                return;
 
-                wifiStatus.Text = "CONNECTING...";
+            wifiStatus.Text = "CONNECTING...";
 
-                await Task.Delay(1000);
+            await Task.Delay(1000);
 
-                if (!IsDisposed && IsHandleCreated)
-                {
-                    serial.Send("CONFIG");
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    "Erro ao configurar Wi-Fi: " + ex.Message,
-                    "Comunicação",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
-            }
+            if (!IsDisposed && IsHandleCreated)
+                TrySend("CONFIG");
         }
 
         // ======================================
         // ATIVAR / DESATIVAR WI-FI
         // ======================================
 
-        private void wifiEnStr_CheckedChanged(object sender, EventArgs e)
+        private void wifiEnStr_CheckedChanged(object? sender, EventArgs e)
         {
             if (_isUpdatingUi)
                 return;
 
-            bool enabled = wifiEnCheck.Checked;
-
-            serial.Send(
-                "WIFI " + (enabled ? "ON" : "OFF")
-            );
+            TrySend("WIFI " + (wifiEnCheck.Checked ? "ON" : "OFF"));
+            if (!IsDisposed && IsHandleCreated)
+                TrySend("CONFIG");
         }
 
         // ======================================
-        // ATUALIZAR CONFIGURAÇÕES
+        // ATUALIZAR
         // ======================================
 
-        private void buttonRefresh_Click(object sender, EventArgs e)
+        private void buttonRefresh_Click(object? sender, EventArgs e)
         {
-            serial.Send("CONFIG");
+            TrySend("CONFIG");
         }
 
         // ======================================
         // ENCERRAMENTO
         // ======================================
 
-        private void WifiConfig_FormClosing(object sender, FormClosingEventArgs e)
+        private void WifiConfig_FormClosing(object? sender, FormClosingEventArgs e)
         {
             serial.DataReceived -= Serial_DataReceived;
         }

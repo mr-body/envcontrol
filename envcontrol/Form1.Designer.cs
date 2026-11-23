@@ -36,6 +36,7 @@
             btn_ping = new Button();
             button2 = new Button();
             button3 = new Button();
+            button4 = new Button();
             SuspendLayout();
             // 
             // btn_act
@@ -45,9 +46,9 @@
             btn_act.Enabled = false;
             btn_act.Font = new Font("Segoe UI", 14F);
             btn_act.ForeColor = Color.White;
-            btn_act.Location = new Point(24, 395);
+            btn_act.Location = new Point(24, 402);
             btn_act.Name = "btn_act";
-            btn_act.Size = new Size(395, 93);
+            btn_act.Size = new Size(395, 86);
             btn_act.TabIndex = 0;
             btn_act.Text = "OFF";
             btn_act.UseVisualStyleBackColor = false;
@@ -74,9 +75,9 @@
             // button1
             // 
             button1.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            button1.Location = new Point(582, 395);
+            button1.Location = new Point(582, 21);
             button1.Name = "button1";
-            button1.Size = new Size(151, 40);
+            button1.Size = new Size(151, 25);
             button1.TabIndex = 4;
             button1.Text = "Conectar";
             button1.UseVisualStyleBackColor = true;
@@ -86,7 +87,7 @@
             // 
             portList.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             portList.FormattingEnabled = true;
-            portList.Location = new Point(487, 32);
+            portList.Location = new Point(330, 21);
             portList.Name = "portList";
             portList.Size = new Size(246, 23);
             portList.TabIndex = 5;
@@ -100,6 +101,7 @@
             btn_ping.Name = "btn_ping";
             btn_ping.Size = new Size(151, 38);
             btn_ping.TabIndex = 6;
+            btn_ping.TabStop = false;
             btn_ping.Text = "Ping";
             btn_ping.UseVisualStyleBackColor = true;
             btn_ping.Click += button2_Click;
@@ -108,7 +110,7 @@
             // 
             button2.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             button2.Enabled = false;
-            button2.Location = new Point(425, 395);
+            button2.Location = new Point(425, 402);
             button2.Name = "button2";
             button2.Size = new Size(151, 40);
             button2.TabIndex = 7;
@@ -118,19 +120,34 @@
             // 
             // button3
             // 
-            button3.Location = new Point(425, 450);
+            button3.Enabled = false;
+            button3.Location = new Point(582, 403);
             button3.Name = "button3";
             button3.Size = new Size(151, 38);
             button3.TabIndex = 8;
-            button3.Text = "WI-FI";
+            button3.Text = "Servers Config";
             button3.UseVisualStyleBackColor = true;
             button3.Click += button3_Click;
+            // 
+            // button4
+            // 
+            button4.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            button4.Enabled = false;
+            button4.Location = new Point(425, 448);
+            button4.Name = "button4";
+            button4.Size = new Size(151, 40);
+            button4.TabIndex = 9;
+            button4.TabStop = false;
+            button4.Text = "WI-FI Config";
+            button4.UseVisualStyleBackColor = true;
+            button4.Click += button4_Click;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(762, 500);
+            Controls.Add(button4);
             Controls.Add(button3);
             Controls.Add(button2);
             Controls.Add(btn_ping);
@@ -154,5 +171,6 @@
         private Button btn_ping;
         private Button button2;
         private Button button3;
+        private Button button4;
     }
 }

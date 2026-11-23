@@ -1,12 +1,14 @@
-﻿
-using System;
+﻿using System;
 using System.IO.Ports;
+using System.Text;
 
 namespace envcontrol.module
 {
     public class SerialCommunication : IDisposable
     {
         private SerialPort? serialPort;
+        private readonly StringBuilder rxBuffer = new();
+        private readonly object rxLock = new();
 
         public bool IsConnected => serialPort != null && serialPort.IsOpen;
 
@@ -19,16 +21,20 @@ namespace envcontrol.module
 
             try
             {
+                lock (rxLock) rxBuffer.Clear();
+
                 serialPort = new SerialPort(portName, baudRate)
                 {
                     NewLine = "\n",
-                    DtrEnable = true,
+                    DtrEnable = false,   // evita reset/bootloader do ESP32
                     RtsEnable = false,
-                    ReadTimeout = 1000
+                    ReadTimeout = 500,
+                    WriteTimeout = 500
                 };
 
                 serialPort.DataReceived += OnDataReceived;
                 serialPort.Open();
+                serialPort.DiscardInBuffer();
             }
             catch
             {
@@ -57,23 +63,39 @@ namespace envcontrol.module
                 throw new InvalidOperationException(
                     "Não existe uma conexão série ativa.");
 
-            serialPort!.WriteLine(message);
+            serialPort!.Write(message + "\n");
         }
 
         private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             try
             {
-                while (serialPort != null &&
-                       serialPort.IsOpen &&
-                       serialPort.BytesToRead > 0)
-                {
-                    string message = serialPort.ReadLine().Trim();
+                var port = serialPort;
+                if (port == null || !port.IsOpen)
+                    return;
 
-                    if (!string.IsNullOrWhiteSpace(message))
+                string chunk = port.ReadExisting();
+
+                lock (rxLock)
+                {
+                    rxBuffer.Append(chunk);
+
+                    while (true)
                     {
-                        DataReceived?.Invoke(message);
+                        string text = rxBuffer.ToString();
+                        int idx = text.IndexOf('\n');
+                        if (idx < 0) break;
+
+                        string line = text.Substring(0, idx).Trim();
+                        rxBuffer.Remove(0, idx + 1);
+
+                        if (!string.IsNullOrWhiteSpace(line))
+                            DataReceived?.Invoke(line);
                     }
+
+                    // proteção contra lixo sem quebra de linha
+                    if (rxBuffer.Length > 4096)
+                        rxBuffer.Clear();
                 }
             }
             catch (Exception ex)
